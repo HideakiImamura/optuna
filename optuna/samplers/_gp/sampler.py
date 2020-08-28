@@ -3,6 +3,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Sequence
 
 import numpy as np
 
@@ -167,6 +168,35 @@ class GPSampler(BaseSampler):
         return self._independent_sampler.sample_independent(
             study, trial, param_name, param_distribution
         )
+
+    def sample_batch_relative(
+        self,
+        study: Study,
+        trials: Sequence[FrozenTrial],
+        search_space: Dict[str, distributions.BaseDistribution]
+    ) -> Dict[str, Any]:
+
+        if len(search_space) == 0:
+            return {}
+
+        exsting_trials = self._get_trials(study)
+        if len(exsting_trials) < self._n_startup_trials:
+            return {}
+
+        n_batches = len(trials)
+        self._acquisition_kwargs["n_batches"] = n_batches
+
+        controller = _BayesianOptimizationController(
+            search_space=search_space,
+            model=self._model,
+            acquisition=self._acquisition,
+            optimizer=self._optimizer,
+            model_kwargs=self._model_kwargs,
+            acquisition_kwargs=self._acquisition_kwargs,
+            optimizer_kwargs=self._optimizer_kwargs,
+        )
+        controller.tell(study, exsting_trials)
+        return controller.ask()
 
     def _log_independent_sampling(self, trial: FrozenTrial, param_name: str) -> None:
 

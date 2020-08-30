@@ -73,11 +73,41 @@ class _BayesianOptimizationController(object):
         def derivative(x: np.ndarray) -> np.ndarray:
             return self._acquisition.compute_grad(x=x, model=self._model)
 
-        param_values = self._optimizer.optimize(f=objective, df=derivative)
+        param_values = self._optimizer.optimize(
+            f=objective, df=derivative, kwargs={"model": self._model}
+        )
         params = {}
         for (name, distribution), param_value in zip(
             sorted(self._search_space.items()), param_values
         ):
+            if isinstance(distribution, distributions.LogUniformDistribution):
+                param_value = math.exp(param_value)
+            elif isinstance(distribution, distributions.DiscreteUniformDistribution):
+                param_value = param_value * distribution.q + distribution.low
+                param_value = float(min(max(param_value, distribution.low), distribution.high))
+            elif isinstance(distribution, distributions.IntUniformDistribution):
+                param_value = param_value * distribution.step + distribution.low
+                param_value = int(min(max(param_value, distribution.low), distribution.high))
+            elif isinstance(distribution, distributions.IntLogUniformDistribution):
+                param_value = param_value + math.log(distribution.low)
+                param_value = int(math.exp(param_value))
+            params[name] = param_value
+
+        return params
+
+    def batch_ask(self) -> Dict[str, Any]:
+        def objective(x: np.ndarray) -> np.ndarray:
+            return self._acquisition.compute_acq(x=x, model=self._model)
+
+        def derivative(x: np.ndarray) -> np.ndarray:
+            return self._acquisition.compute_grad(x=x, model=self._model)
+
+        param_values = self._optimizer.optimize(
+            f=objective, df=derivative, kwargs={"model": self._model}
+        )
+        params = {}
+        for i, (name, distribution)in enumerate(sorted(self._search_space.items())):
+            param_value = param_values[:, i]
             if isinstance(distribution, distributions.LogUniformDistribution):
                 param_value = math.exp(param_value)
             elif isinstance(distribution, distributions.DiscreteUniformDistribution):

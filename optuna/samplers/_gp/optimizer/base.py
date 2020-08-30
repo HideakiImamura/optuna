@@ -1,6 +1,7 @@
 import abc
 from typing import Any
 from typing import Callable
+from typing import Dict
 from typing import Optional
 
 import numpy as np
@@ -11,7 +12,10 @@ class BaseOptimizer(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def optimize(
-        self, f: Callable[[Any], Any], df: Optional[Callable[[Any], Any]] = None
+        self,
+        f: Callable[[Any], Any],
+        df: Optional[Callable[[Any], Any]] = None,
+        kwargs: Optional[Dict[str, Any]] = None
     ) -> np.ndarray:
         """Optimize (maximize) the given objective function f.
 
@@ -20,6 +24,8 @@ class BaseOptimizer(object, metaclass=abc.ABCMeta):
                 The objective function to be maximized.
             df:
                 The gradient of the objective function.
+            kwargs:
+                The keyword arguments.
         Returns:
             A parameter list which maximize the objective function.
         """

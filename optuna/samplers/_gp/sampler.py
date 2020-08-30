@@ -184,7 +184,7 @@ class GPSampler(BaseSampler):
             return {}
 
         n_batches = len(trials)
-        self._acquisition_kwargs["n_batches"] = n_batches
+        self._optimizer_kwargs["n_batches"] = n_batches
 
         controller = _BayesianOptimizationController(
             search_space=search_space,
@@ -196,7 +196,7 @@ class GPSampler(BaseSampler):
             optimizer_kwargs=self._optimizer_kwargs,
         )
         controller.tell(study, exsting_trials)
-        return controller.ask()
+        return controller.batch_ask()
 
     def _log_independent_sampling(self, trial: FrozenTrial, param_name: str) -> None:
 

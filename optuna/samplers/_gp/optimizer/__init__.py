@@ -4,6 +4,7 @@ from typing import Dict
 import numpy as np
 
 from optuna.samplers._gp.optimizer.base import BaseOptimizer
+from optuna.samplers._gp.optimizer.lp import LP
 from optuna.samplers._gp.optimizer.scipy import ScipyOptimizer
 
 
@@ -14,5 +15,10 @@ def optimizer_selector(
 
     if optimizer == "L-BFGS-B":
         return ScipyOptimizer(bounds=bounds, method=optimizer, **kwargs)
+    elif optimizer == "LP":
+        n_batches = kwargs["n_batches"]
+        del kwargs["n_batches"]
+        base_optimizer = ScipyOptimizer(bounds=bounds, method=optimizer, **kwargs)
+        return LP(n_batches=n_batches, optimizer=base_optimizer)
     else:
         raise ValueError("The optimizer {} is not supported.".format(optimizer))

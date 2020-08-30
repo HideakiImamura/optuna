@@ -1,5 +1,6 @@
 from typing import Any
 from typing import Callable
+from typing import Dict
 from typing import Optional
 from typing import Tuple
 
@@ -34,7 +35,10 @@ class ScipyOptimizer(BaseOptimizer):
         self._n_anchor = n_anchor
 
     def optimize(
-        self, f: Callable[[Any], Any], df: Optional[Callable[[Any], Any]] = None
+        self,
+        f: Callable[[Any], Any],
+        df: Optional[Callable[[Any], Any]] = None,
+        kwargs: Optional[Dict[str, Any]] = None
     ) -> np.ndarray:
 
         # Change the optimization problem from maximization to minimization for scipy.optimize.

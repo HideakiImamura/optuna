@@ -95,7 +95,7 @@ class _BayesianOptimizationController(object):
 
         return params
 
-    def batch_ask(self) -> Dict[str, Any]:
+    def batch_ask(self) -> List[Dict[str, Any]]:
         def objective(x: np.ndarray) -> np.ndarray:
             return self._acquisition.compute_acq(x=x, model=self._model)
 
@@ -105,7 +105,8 @@ class _BayesianOptimizationController(object):
         param_values = self._optimizer.optimize(
             f=objective, df=derivative, kwargs={"model": self._model}
         )
-        params = {}
+        n_batches = param_values.shape[0]
+        params = [{} for _ in range(n_batches)]
         for i, (name, distribution)in enumerate(sorted(self._search_space.items())):
             param_value = param_values[:, i]
             if isinstance(distribution, distributions.LogUniformDistribution):
@@ -119,7 +120,8 @@ class _BayesianOptimizationController(object):
             elif isinstance(distribution, distributions.IntLogUniformDistribution):
                 param_value = param_value + math.log(distribution.low)
                 param_value = int(math.exp(param_value))
-            params[name] = param_value
+            for j in range(n_batches):
+                params[j][name] = param_value[j]
 
         return params
 

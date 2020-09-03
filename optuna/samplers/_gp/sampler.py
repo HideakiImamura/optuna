@@ -92,6 +92,7 @@ class GPSampler(BaseSampler):
         self._rng = np.random.RandomState(seed)
 
         self._search_space = IntersectionSearchSpace()
+        self._param_queue = []  # type: List[Dict[str, Any]]
 
     def reseed_rng(self) -> None:
 
@@ -140,6 +141,9 @@ class GPSampler(BaseSampler):
         if len(trials) < self._n_startup_trials:
             return {}
 
+        if len(self._param_queue):
+            return self._param_queue.pop()
+
         controller = _BayesianOptimizationController(
             search_space=search_space,
             model=self._model,
@@ -150,7 +154,12 @@ class GPSampler(BaseSampler):
             optimizer_kwargs=self._optimizer_kwargs,
         )
         controller.tell(study, trials)
-        return controller.ask()
+
+        if self._optimizer_kwargs.get("n_batches", 1) == 1:
+            return controller.ask()
+        else:
+            self._param_queue = controller.batch_ask()
+            return self._param_queue.pop()
 
     def sample_independent(
         self,
@@ -169,34 +178,34 @@ class GPSampler(BaseSampler):
             study, trial, param_name, param_distribution
         )
 
-    def sample_batch_relative(
-        self,
-        study: Study,
-        trials: Sequence[FrozenTrial],
-        search_space: Dict[str, distributions.BaseDistribution]
-    ) -> Dict[str, Any]:
-
-        if len(search_space) == 0:
-            return {}
-
-        exsting_trials = self._get_trials(study)
-        if len(exsting_trials) < self._n_startup_trials:
-            return {}
-
-        n_batches = len(trials)
-        self._optimizer_kwargs["n_batches"] = n_batches
-
-        controller = _BayesianOptimizationController(
-            search_space=search_space,
-            model=self._model,
-            acquisition=self._acquisition,
-            optimizer=self._optimizer,
-            model_kwargs=self._model_kwargs,
-            acquisition_kwargs=self._acquisition_kwargs,
-            optimizer_kwargs=self._optimizer_kwargs,
-        )
-        controller.tell(study, exsting_trials)
-        return controller.batch_ask()
+    # def sample_batch_relative(
+    #     self,
+    #     study: Study,
+    #     trials: Sequence[FrozenTrial],
+    #     search_space: Dict[str, distributions.BaseDistribution]
+    # ) -> Dict[str, Any]:
+    #
+    #     if len(search_space) == 0:
+    #         return {}
+    #
+    #     exsting_trials = self._get_trials(study)
+    #     if len(exsting_trials) < self._n_startup_trials:
+    #         return {}
+    #
+    #     n_batches = len(trials)
+    #     self._optimizer_kwargs["n_batches"] = n_batches
+    #
+    #     controller = _BayesianOptimizationController(
+    #         search_space=search_space,
+    #         model=self._model,
+    #         acquisition=self._acquisition,
+    #         optimizer=self._optimizer,
+    #         model_kwargs=self._model_kwargs,
+    #         acquisition_kwargs=self._acquisition_kwargs,
+    #         optimizer_kwargs=self._optimizer_kwargs,
+    #     )
+    #     controller.tell(study, exsting_trials)
+    #     return controller.batch_ask()
 
     def _log_independent_sampling(self, trial: FrozenTrial, param_name: str) -> None:
 

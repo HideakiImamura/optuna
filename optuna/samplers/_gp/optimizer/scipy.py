@@ -22,9 +22,9 @@ class ScipyOptimizer(BaseOptimizer):
     def __init__(
         self,
         bounds: np.ndarray,
-        maxiter: int = 100,
+        maxiter: int = 20,
         method: str = "L-BFGS-B",
-        n_samples_for_anchor: int = 1000,
+        n_samples_for_anchor: int = 10,
         n_anchor: int = 5,
     ):
 

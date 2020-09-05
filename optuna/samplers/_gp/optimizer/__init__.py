@@ -18,7 +18,9 @@ def optimizer_selector(
     elif optimizer == "LP":
         n_batches = kwargs["n_batches"]
         del kwargs["n_batches"]
-        base_optimizer = ScipyOptimizer(bounds=bounds, method=optimizer, **kwargs)
+        base_optimizer = kwargs.get("base_optimizer", "L-BFGS-B")
+        del kwargs["base_optimizer"]
+        base_optimizer = ScipyOptimizer(bounds=bounds, method=base_optimizer, **kwargs)
         return LP(n_batches=n_batches, optimizer=base_optimizer)
     else:
         raise ValueError("The optimizer {} is not supported.".format(optimizer))

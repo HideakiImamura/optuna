@@ -105,7 +105,6 @@ class _BayesianOptimizationController(object):
         param_values = self._optimizer.optimize(
             f=objective, df=derivative, kwargs={"model": self._model}
         )
-        print("param_values = ", param_values)
         n_batches = param_values.shape[0]
         params = [{} for _ in range(n_batches)]
         for i, (name, distribution)in enumerate(sorted(self._search_space.items())):

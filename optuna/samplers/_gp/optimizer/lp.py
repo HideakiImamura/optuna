@@ -56,7 +56,6 @@ class LP(BaseOptimizer):
         _f = _f_origin
         _df = _df_origin
         for i in range(self._n_batches):
-            print(i)
             x = self._optimizer.optimize(f=_f, df=_df, kwargs=kwargs)
             xs = np.vstack([xs, x])
 

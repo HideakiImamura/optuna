@@ -133,7 +133,7 @@ class GPSampler(BaseSampler):
         trial: FrozenTrial,
         search_space: Dict[str, distributions.BaseDistribution],
     ) -> Dict[str, Any]:
-        print("sample_relative!")
+        # print("sample_relative!")
 
         if len(search_space) == 0:
             return {}
@@ -145,8 +145,8 @@ class GPSampler(BaseSampler):
         if len(self._param_queue):
             return self._param_queue.pop()
 
-        print("start controller init")
-        start = time.time()
+        # print("start controller init")
+        # start = time.time()
         controller = _BayesianOptimizationController(
             search_space=search_space,
             model=self._model,
@@ -156,24 +156,24 @@ class GPSampler(BaseSampler):
             acquisition_kwargs=self._acquisition_kwargs,
             optimizer_kwargs=self._optimizer_kwargs,
         )
-        print("end controller init: {}".format(time.time() - start))
-        print("start tell")
-        start = time.time()
+        # print("end controller init: {}".format(time.time() - start))
+        # print("start tell")
+        # start = time.time()
         controller.tell(study, trials)
-        print("end tell: {}".format(time.time() - start))
+        # print("end tell: {}".format(time.time() - start))
 
-        print(self._optimizer_kwargs)
+        # print(self._optimizer_kwargs)
         if self._optimizer_kwargs.get("n_batches", 1) == 1:
-            print("start ask")
-            start = time.time()
+            # print("start ask")
+            # start = time.time()
             ret = controller.ask()
-            print("end ask: {}".format(time.time() - start))
+            # print("end ask: {}".format(time.time() - start))
             return ret
         else:
-            print("start batch ask")
-            start = time.time()
+            # print("start batch ask")
+            # start = time.time()
             self._param_queue = controller.batch_ask()
-            print("end batch ask: {}".format(time.time() - start))
+            # print("end batch ask: {}".format(time.time() - start))
             return self._param_queue.pop()
 
     def sample_independent(

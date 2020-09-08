@@ -105,21 +105,22 @@ class _BayesianOptimizationController(object):
         param_values = self._optimizer.optimize(
             f=objective, df=derivative, kwargs={"model": self._model}
         )
+        print("param_values = ", param_values)
         n_batches = param_values.shape[0]
         params = [{} for _ in range(n_batches)]
         for i, (name, distribution)in enumerate(sorted(self._search_space.items())):
             param_value = param_values[:, i]
             if isinstance(distribution, distributions.LogUniformDistribution):
-                param_value = math.exp(param_value)
+                param_value = np.exp(param_value)
             elif isinstance(distribution, distributions.DiscreteUniformDistribution):
                 param_value = param_value * distribution.q + distribution.low
-                param_value = float(min(max(param_value, distribution.low), distribution.high))
+                param_value = np.minimum(np.maximum(param_value, distribution.low), distribution.high).astype(float)
             elif isinstance(distribution, distributions.IntUniformDistribution):
                 param_value = param_value * distribution.step + distribution.low
-                param_value = int(min(max(param_value, distribution.low), distribution.high))
+                param_value = np.minimum(np.maximum(param_value, distribution.low), distribution.high).astype(int)
             elif isinstance(distribution, distributions.IntLogUniformDistribution):
-                param_value = param_value + math.log(distribution.low)
-                param_value = int(math.exp(param_value))
+                param_value = param_value + np.log(distribution.low)
+                param_value = np.exp(param_value).astype(int)
             for j in range(n_batches):
                 params[j][name] = param_value[j]
 

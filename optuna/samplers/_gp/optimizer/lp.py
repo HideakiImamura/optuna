@@ -12,6 +12,9 @@ from optuna.samplers._gp.model import BaseModel
 from optuna.samplers._gp.optimizer import BaseOptimizer
 
 
+_EPS = 1e-12
+
+
 class LP(BaseOptimizer):
     """Acquisition optimizer for batch suggesting with local penalization.
 
@@ -44,28 +47,34 @@ class LP(BaseOptimizer):
         xs = np.array([]).reshape((0, input_dim))
 
         def _f_origin(z: np.ndarray) -> np.ndarray:
-            return np.log(self._g(f(z)))
+            return np.log(self._g(f(z).flatten()))
 
         def _df_origin(z: np.ndarray) -> np.ndarray:
-            fz = f(z)
-            return np.diag((df(z).dot(self._dg(fz))) / self._g(fz))
+            fz = f(z).flatten()
+            return np.einsum("i,ij,i->ij", self._dg(fz), df(z)[:, :, 0], 1 / self._g(fz))
 
         _f = _f_origin
         _df = _df_origin
         for i in range(self._n_batches):
+            print(i)
             x = self._optimizer.optimize(f=_f, df=_df, kwargs=kwargs)
             xs = np.vstack([xs, x])
 
             def _f(z: np.ndarray) -> np.ndarray:
                 ret = _f_origin(z)
                 for y in xs:
-                    ret += np.log(self._phi(z, y, model))
+                    _phi_val = self._phi(z, y, model)
+                    if _phi_val <= 0:
+                        _phi_val = _EPS * np.ones(_phi_val.shape)
+                    ret += np.log(_phi_val)
                 return ret
 
             def _df(z: np.ndarray) -> np.ndarray:
                 ret = _df_origin(z)
                 for y in xs:
                     _phi_val, _dphi_val = self._phi_dphi(z, y, model)
+                    if _phi_val <= 0:
+                        _phi_val = _EPS * np.ones(_phi_val.shape)
                     ret += _dphi_val.dot(1. / _phi_val)
                 return ret
 
@@ -83,41 +92,56 @@ class LP(BaseOptimizer):
     def _dg(x: np.ndarray) -> np.ndarray:
 
        if (x > 0).any():
-           return np.eye(x.shape[0])
+           return np.ones(x.shape[0])
        else:
-           return np.diag(np.exp(x) / (1 + np.exp(x)))
+           return np.exp(x) / (1 + np.exp(x))
 
     def _phi(self, x: np.ndarray, x_j: np.ndarray, model: BaseModel) -> np.ndarray:
 
         mus, sigmas = model.predict(x_j)
-        L_norm = np.einsum("ik,i->ik", self._L, linalg.norm(x - x_j, axis=1))
-        z = np.einsum("ikl,ik->il", linalg.inv(sigmas) / np.sqrt(2), mus + L_norm - self._M)
-        return erfc(-z) / 2
+        mus = mus[:, 0, :]
+        sigmas = sigmas[:, 0, :, :]
+
+        numerator = np.einsum("ak,k,k->ak", mus, linalg.norm(x - x_j) * self._L, - self._M)
+        denominator = np.array([linalg.inv(sigmas[a]) for a in range(model.n_mcmc_samples)])
+        z = np.einsum("ak,akl->al", numerator, denominator / np.sqrt(2))
+        return np.sum(erfc(-z) / 2, axis=0) / model.n_mcmc_samples
 
     def _phi_dphi(
         self, x: np.ndarray, x_j: np.ndarray, model: BaseModel
     ) -> Tuple[np.ndarray, np.ndarray]:
 
         mus, sigmas = model.predict(x_j)
-        norm = linalg.norm(x - x_j, axis=1)
-        L_norm = np.einsum("ik,i->ik", self._L, norm)
-        inv_sigmas = linalg.inv(sigmas)
-        z = np.einsum("ikl,ik->il", inv_sigmas / np.sqrt(2), mus + L_norm - self._M)
+        mus = mus[:, 0, :]
+        sigmas = sigmas[:, 0, :, :]
 
-        _phi_val = erfc(-z) / 2
+        norm = linalg.norm(x - x_j)
+        inv_sigmas = np.array([linalg.inv(sigmas[a]) for a in range(model.n_mcmc_samples)])
+        numerator = np.einsum("ak,k,k->ak", mus, norm * self._L, - self._M)
+        denominator = inv_sigmas / np.sqrt(2)
+        z = np.einsum("ak,akl->al", numerator, denominator)
 
-        _dphi_val = np.einsum("ikl,ik->il", inv_sigmas / np.sqrt(2 * np.pi), np.exp(- z ** 2))
-        _dphi_val = np.einsum("ik,ik,i,ij->ijk", _dphi_val, 2 * self._L, 1 / norm, x_j - x)
+        _phi_val = np.sum(erfc(-z) / 2, axis=0) / model.n_mcmc_samples
+
+        _dphi_val = np.einsum("akl,ak->al", inv_sigmas / np.sqrt(2 * np.pi), np.exp(- z ** 2))
+        _dphi_val = np.einsum("ak,k,j->ajk", _dphi_val, 2 * self._L / norm, x_j - x)
+        _dphi_val = np.sum(_dphi_val, axis=0) / model.n_mcmc_samples
 
         return _phi_val, _dphi_val
 
     def _estimate_L(self, model: BaseModel) -> np.ndarray:
 
-        def _f(x: np.ndarray) -> np.ndarray:
-            dmus, _ = model.predict_gradient(x)
-            return linalg.norm(dmus, axis=1)
+        L = np.zeros(model.output_dim)
+        for k in range(model.output_dim):
+            def _f(x: np.ndarray) -> np.ndarray:
+                dmus, _ = model.predict_gradient(x)
 
-        return self._optimizer.optimize(f=_f)
+                return - np.sum(linalg.norm(dmus[:, :, :, k], axis=2), axis=0).flatten() / model.n_mcmc_samples
+
+            x_max = self._optimizer.optimize(f=_f)
+            dmus, _ = model.predict_gradient(x_max)
+            L[k] = np.sum(linalg.norm(dmus[:, :, :, k], axis=2)) / model.n_mcmc_samples
+        return L
 
     @staticmethod
     def _estimate_M(model: BaseModel) -> np.ndarray:

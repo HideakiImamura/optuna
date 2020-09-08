@@ -1,3 +1,4 @@
+import copy
 from typing import Any
 from typing import Dict
 
@@ -17,10 +18,12 @@ def optimizer_selector(
         return ScipyOptimizer(bounds=bounds, method=optimizer, **kwargs)
     elif optimizer == "LP":
         n_batches = kwargs["n_batches"]
-        del kwargs["n_batches"]
         base_optimizer = kwargs.get("base_optimizer", "L-BFGS-B")
-        del kwargs["base_optimizer"]
-        base_optimizer = ScipyOptimizer(bounds=bounds, method=base_optimizer, **kwargs)
+        copied_kwargs = copy.copy(kwargs)
+        del copied_kwargs["n_batches"]
+        if "base_optimizer" in kwargs:
+            del copied_kwargs["base_optimizer"]
+        base_optimizer = ScipyOptimizer(bounds=bounds, method=base_optimizer, **copied_kwargs)
         return LP(n_batches=n_batches, optimizer=base_optimizer)
     else:
         raise ValueError("The optimizer {} is not supported.".format(optimizer))

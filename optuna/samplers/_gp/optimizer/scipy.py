@@ -24,7 +24,7 @@ class ScipyOptimizer(BaseOptimizer):
         bounds: np.ndarray,
         maxiter: int = 20,
         method: str = "L-BFGS-B",
-        n_samples_for_anchor: int = 10,
+        n_samples_for_anchor: int = 10000,
         n_anchor: int = 5,
     ):
 
@@ -115,7 +115,7 @@ class ScipyOptimizer(BaseOptimizer):
             method=self._method,
             jac=df,
             bounds=self._bounds,
-            options={"maxiter": self._maxiter},
+            options={"maxiter": self._maxiter, "maxfun": self._maxiter},
         )
 
         if res.success:

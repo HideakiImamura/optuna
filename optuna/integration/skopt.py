@@ -160,9 +160,20 @@ class SkoptSampler(BaseSampler):
         if len(complete_trials) < self._n_startup_trials:
             return {}
 
+        #import time
+        #print("start controller init")
+        #start = time.time()
         optimizer = _Optimizer(search_space, self._skopt_kwargs)
+        #print("end controller init: {}".format(time.time() - start))
+        #print("start tell")
+        #start = time.time()
         optimizer.tell(study, complete_trials)
-        return optimizer.ask()
+        #print("end tell: {}".format(time.time() - start))
+        #print("start ask")
+        #start = time.time()
+        ret = optimizer.ask()
+        #print("end ask: {}".format(time.time() - start))
+        return ret
 
     def sample_independent(
         self,

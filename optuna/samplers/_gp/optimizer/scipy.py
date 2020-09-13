@@ -115,7 +115,7 @@ class ScipyOptimizer(BaseOptimizer):
             method=self._method,
             jac=df,
             bounds=self._bounds,
-            options={"maxiter": self._maxiter, "maxfun": self._maxiter},
+            options={"maxiter": self._maxiter}, #, "maxfun": self._maxiter},
         )
 
         if res.success:

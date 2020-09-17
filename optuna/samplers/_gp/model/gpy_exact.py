@@ -1,3 +1,4 @@
+import copy
 from typing import Optional
 from typing import Tuple
 from typing import Union
@@ -52,8 +53,8 @@ class GPyExact(BaseModel):
         self._input_dim = None
         self._output_dim = None
         self._gpy_model = None
+        self._cached_gpy_models = [None for _ in range(self._hmc_n_samples)]
         self._hmc = None
-        self._hmc_samples = None
 
         if x is not None and y is not None:
             self._initialize()
@@ -149,7 +150,11 @@ class GPyExact(BaseModel):
             num_samples=self._hmc_burnin + self._hmc_n_samples * self._hmc_subsample_interval,
             hmc_iters=self._hmc_iters,
         )
-        self._hmc_samples = samples[self._hmc_burnin :: self._hmc_subsample_interval]
+        _hmc_samples = samples[self._hmc_burnin :: self._hmc_subsample_interval]
+        for i in range(self._hmc_n_samples):
+            self._cached_gpy_models[i] = copy.deepcopy(self._gpy_model)
+            self._cached_gpy_models[i][:] = _hmc_samples[i]
+            self._cached_gpy_models[i]._trigger_params_changed()
 
     def add_data(self, x: np.ndarray, y: np.ndarray) -> None:
 
@@ -166,22 +171,14 @@ class GPyExact(BaseModel):
 
     def predict(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
-        assert self._gpy_model is not None
+        assert all([gpy_model is not None for gpy_model in self._cached_gpy_models])
         x = np.atleast_2d(x)
-        ps = self._gpy_model.param_array.copy()
         _mus = []
         _sigmas = []
-        for s in self._hmc_samples:
-            if self._gpy_model._fixes_ is None:
-                self._gpy_model[:] = s
-            else:
-                self._gpy_model[self._gpy_model._fixes_] = s
-            self._gpy_model._trigger_params_changed()
-            m, v = self._gpy_model.predict(x)
+        for i in range(self._hmc_n_samples):
+            m, v = self._cached_gpy_models[i].predict(x)
             _mus.append(m)
             _sigmas.append(np.sqrt(np.clip(v, 1e-10, np.inf)))
-        self._gpy_model.param_array[:] = ps
-        self._gpy_model._trigger_params_changed()
         _mus = np.asarray(_mus)
         _sigmas = np.asarray(_sigmas)
 
@@ -209,26 +206,18 @@ class GPyExact(BaseModel):
 
     def predict_gradient(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
-        assert self._gpy_model is not None
+        assert all([gpy_model is not None for gpy_model in self._cached_gpy_models])
         x = np.atleast_2d(x)
-        ps = self._gpy_model.param_array.copy()
         _dmus = []
         _dsigmas = []
-        for s in self._hmc_samples:
-            if self._gpy_model._fixes_ is None:
-                self._gpy_model[:] = s
-            else:
-                self._gpy_model[self._gpy_model._fixes_] = s
-            self._gpy_model._trigger_params_changed()
-            _, v = self._gpy_model.predict(x)
+        for i in range(self._hmc_n_samples):
+            _, v = self._cached_gpy_models[i].predict(x)
             std = np.sqrt(np.clip(v, 1e-10, np.inf))
-            dm, dv = self._gpy_model.predictive_gradients(x)
+            dm, dv = self._cached_gpy_models[i].predictive_gradients(x)
             dm = dm[:, :, 0]
             ds = dv / (2 * std)
             _dmus.append(dm)
             _dsigmas.append(ds)
-        self._gpy_model.param_array[:] = ps
-        self._gpy_model._trigger_params_changed()
         _dmus = np.asarray(_dmus)
         _dsigmas = np.asarray(_dsigmas)
 

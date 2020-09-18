@@ -160,6 +160,7 @@ class GPyExact(BaseModel):
 
         self._verify_data(x, y)
 
+        x, y = self._normalize(x, y)
         if self._gpy_model is None:
             self._x = x
             self._y = y
@@ -244,3 +245,16 @@ class GPyExact(BaseModel):
             )
 
         return _dmus, _dsigmas
+
+    @staticmethod
+    def _normalize(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        y = y.flatten()
+        q = np.quantile(y, [0.25, 0.75])
+        indexes = (0.75 * q[0] - 0.25 * q[1] <= y) * (y <= 0.25 * q[0] + 1.25 * q[1])
+        if any(indexes):
+            print("Removed outliers!")
+            x = x[indexes]
+            y = y[indexes]
+        y = (y - y.mean()) / y.std()
+        y = y.reshape((x.shape[0], 1))
+        return x, y

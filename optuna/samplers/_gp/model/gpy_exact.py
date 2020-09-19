@@ -249,7 +249,7 @@ class GPyExact(BaseModel):
     @staticmethod
     def _normalize(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         y = y.flatten()
-        q = np.quantile(y, [0.05, 0.95])
+        q = np.quantile(y, [0.01, 0.99])
         indexes = y <= - 0.25 * q[0] + 1.25 * q[1]
         if any(~indexes):
             print("Removed outliers: {}/{}".format(np.sum(~indexes), len(indexes)))

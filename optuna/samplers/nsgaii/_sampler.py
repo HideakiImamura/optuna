@@ -200,10 +200,7 @@ class NSGAIISampler(BaseSampler):
         search_space: Dict[str, BaseDistribution],
     ) -> Dict[str, Any]:
         parent_generation, parent_population = self._collect_parent_population(study)
-        trial_id = trial._trial_id
-
-        generation = parent_generation + 1
-        study._storage.set_trial_system_attr(trial_id, _GENERATION_KEY, generation)
+        self._set_generation(study, trial, parent_generation + 1)
 
         if parent_generation < 0:
             return {}
@@ -232,10 +229,12 @@ class NSGAIISampler(BaseSampler):
         generation_to_runnings = defaultdict(list)
         generation_to_population = defaultdict(list)
         for trial in trials:
-            if _GENERATION_KEY not in trial.system_attrs:
-                continue
+            _generation = self._get_generation(trial)
 
-            generation = trial.system_attrs[_GENERATION_KEY]
+            if _generation is None:
+                continue
+            assert _generation is not None
+            generation = _generation
             if trial.state != optuna.trial.TrialState.COMPLETE:
                 if trial.state == optuna.trial.TrialState.RUNNING:
                     generation_to_runnings[generation].append(trial)
@@ -378,6 +377,15 @@ class NSGAIISampler(BaseSampler):
             if self._rng.rand() >= mutation_prob:
                 params[param_name] = child_params[param_name]
         return params
+
+    @staticmethod
+    def _get_generation(trial: FrozenTrial) -> Optional[int]:
+        return trial.system_attrs.get(_GENERATION_KEY, None)
+
+    @staticmethod
+    def _set_generation(study: Study, trial: FrozenTrial, generation: int) -> None:
+        trial_id = trial._trial_id
+        study._storage.set_trial_system_attr(trial_id, _GENERATION_KEY, generation)
 
 
 def _calc_crowding_distance(population: List[FrozenTrial]) -> DefaultDict[int, float]:

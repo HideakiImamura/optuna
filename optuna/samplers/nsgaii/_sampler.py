@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 import hashlib
 import itertools
@@ -203,38 +205,10 @@ class NSGAIISampler(BaseSampler):
         generation = parent_generation + 1
         study._storage.set_trial_system_attr(trial_id, _GENERATION_KEY, generation)
 
-        dominates_func = _dominates if self._constraints_func is None else _constrained_dominates
+        if parent_generation < 0:
+            return {}
 
-        if parent_generation >= 0:
-            # We choose a child based on the specified crossover method.
-            if self._rng.rand() < self._crossover_prob:
-                child_params = perform_crossover(
-                    self._crossover,
-                    study,
-                    parent_population,
-                    search_space,
-                    self._rng,
-                    self._swapping_prob,
-                    dominates_func,
-                )
-            else:
-                parent_population_size = len(parent_population)
-                parent_params = parent_population[self._rng.choice(parent_population_size)].params
-                child_params = {name: parent_params[name] for name in search_space.keys()}
-
-            n_params = len(child_params)
-            if self._mutation_prob is None:
-                mutation_prob = 1.0 / max(1.0, n_params)
-            else:
-                mutation_prob = self._mutation_prob
-
-            params = {}
-            for param_name in child_params.keys():
-                if self._rng.rand() >= mutation_prob:
-                    params[param_name] = child_params[param_name]
-            return params
-
-        return {}
+        return self._generate_child(study, parent_population, search_space)
 
     def sample_independent(
         self,
@@ -330,10 +304,11 @@ class NSGAIISampler(BaseSampler):
     def _select_elite_population(
         self, study: Study, population: List[FrozenTrial]
     ) -> List[FrozenTrial]:
+        self._validate_constraints(population)
+
         elite_population: List[FrozenTrial] = []
-        population_per_rank = _fast_non_dominated_sort(
-            population, study.directions, self._constraints_func
-        )
+        dominates = _dominates if self._constraints_func is None else _constrained_dominates
+        population_per_rank = _fast_non_dominated_sort(population, study.directions, dominates)
         for population in population_per_rank:
             if len(elite_population) + len(population) < self._population_size:
                 elite_population.extend(population)
@@ -356,6 +331,53 @@ class NSGAIISampler(BaseSampler):
         if self._constraints_func is not None:
             _process_constraints_after_trial(self._constraints_func, study, trial, state)
         self._random_sampler.after_trial(study, trial, state, values)
+
+    def _validate_constraints(self, population: list[FrozenTrial]) -> None:
+        if self._constraints_func is None:
+            return
+
+        for _trial in population:
+            _constraints = _trial.system_attrs.get(_CONSTRAINTS_KEY)
+            if _constraints is None:
+                continue
+            if np.any(np.isnan(np.array(_constraints))):
+                raise ValueError("NaN is not acceptable as constraint value.")
+
+    def _generate_child(
+        self,
+        study: Study,
+        parent_population: list[FrozenTrial],
+        search_space: dict[str, BaseDistribution],
+    ) -> dict[str, Any]:
+        dominates_func = _dominates if self._constraints_func is None else _constrained_dominates
+
+        # We choose a child based on the specified crossover method.
+        if self._rng.rand() < self._crossover_prob:
+            child_params = perform_crossover(
+                self._crossover,
+                study,
+                parent_population,
+                search_space,
+                self._rng,
+                self._swapping_prob,
+                dominates_func,
+            )
+        else:
+            parent_population_size = len(parent_population)
+            parent_params = parent_population[self._rng.choice(parent_population_size)].params
+            child_params = {name: parent_params[name] for name in search_space.keys()}
+
+        n_params = len(child_params)
+        if self._mutation_prob is None:
+            mutation_prob = 1.0 / max(1.0, n_params)
+        else:
+            mutation_prob = self._mutation_prob
+
+        params = {}
+        for param_name in child_params.keys():
+            if self._rng.rand() >= mutation_prob:
+                params[param_name] = child_params[param_name]
+        return params
 
 
 def _calc_crowding_distance(population: List[FrozenTrial]) -> DefaultDict[int, float]:
@@ -491,20 +513,10 @@ def _constrained_dominates(
 def _fast_non_dominated_sort(
     population: List[FrozenTrial],
     directions: List[optuna.study.StudyDirection],
-    constraints_func: Optional[Callable[[FrozenTrial], Sequence[float]]] = None,
+    dominates: Callable[[FrozenTrial, FrozenTrial, Sequence[StudyDirection]], bool],
 ) -> List[List[FrozenTrial]]:
-    if constraints_func is not None:
-        for _trial in population:
-            _constraints = _trial.system_attrs.get(_CONSTRAINTS_KEY)
-            if _constraints is None:
-                continue
-            if np.any(np.isnan(np.array(_constraints))):
-                raise ValueError("NaN is not acceptable as constraint value.")
-
     dominated_count: DefaultDict[int, int] = defaultdict(int)
     dominates_list = defaultdict(list)
-
-    dominates = _dominates if constraints_func is None else _constrained_dominates
 
     for p, q in itertools.combinations(population, 2):
         if dominates(p, q, directions):

@@ -282,18 +282,11 @@ class NSGAIISampler(BaseSampler):
                 population = [trials[n] for n in cached_population_numbers]
             else:
                 population.extend(parent_population)
-                population = self._select_elite_population(study, population)
+                population = self._select_elite_population(study, population, generation)
 
-                # To reduce the number of system attribute entries,
-                # we cache the population information only if there are no running trials
-                # (i.e., the information of the population has been fixed).
-                # Usually, if there are no too delayed running trials, the single entry
-                # will be used.
-                if len(generation_to_runnings[generation]) == 0:
-                    population_numbers = [t.number for t in population]
-                    study._storage.set_study_system_attr(
-                        study._study_id, cache_key, (generation, population_numbers)
-                    )
+                self._after_selecting_elite_population(
+                    study, population, generation, generation_to_runnings, cache_key
+                )
 
             parent_generation = generation
             parent_population = population
@@ -301,7 +294,7 @@ class NSGAIISampler(BaseSampler):
         return parent_generation, parent_population
 
     def _select_elite_population(
-        self, study: Study, population: List[FrozenTrial]
+        self, study: Study, population: List[FrozenTrial], generation: int
     ) -> List[FrozenTrial]:
         self._validate_constraints(population)
 
@@ -386,6 +379,25 @@ class NSGAIISampler(BaseSampler):
     def _set_generation(study: Study, trial: FrozenTrial, generation: int) -> None:
         trial_id = trial._trial_id
         study._storage.set_trial_system_attr(trial_id, _GENERATION_KEY, generation)
+
+    def _after_selecting_elite_population(
+        self,
+        study: Study,
+        population: list[FrozenTrial],
+        generation: int,
+        generation_to_runnings: dict[int, list[FrozenTrial]],
+        cache_key: str,
+    ) -> None:
+        # To reduce the number of system attribute entries,
+        # we cache the population information only if there are no running trials
+        # (i.e., the information of the population has been fixed).
+        # Usually, if there are no too delayed running trials, the single entry
+        # will be used.
+        if len(generation_to_runnings[generation]) == 0:
+            population_numbers = [t.number for t in population]
+            study._storage.set_study_system_attr(
+                study._study_id, cache_key, (generation, population_numbers)
+            )
 
 
 def _calc_crowding_distance(population: List[FrozenTrial]) -> DefaultDict[int, float]:

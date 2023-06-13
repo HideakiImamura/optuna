@@ -243,6 +243,8 @@ class NSGAIISampler(BaseSampler):
             # Do not use trials whose states are not COMPLETE, or `constraint` will be unavailable.
             generation_to_population[generation].append(trial)
 
+        print(generation_to_population)
+        print(generation_to_runnings)
         hasher = hashlib.sha256()
         parent_population: List[FrozenTrial] = []
         parent_generation = -1

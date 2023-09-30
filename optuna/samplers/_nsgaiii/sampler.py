@@ -8,18 +8,17 @@ from typing import Any
 
 import numpy as np
 
-import optuna
 from optuna._experimental import experimental_class
 from optuna.distributions import BaseDistribution
 from optuna.samplers._base import BaseSampler
+from optuna.samplers._nsgaiii.elite_population_selection_strategy import (
+    NSGAIIIElitePopulationSelectionStrategy,
+)
 from optuna.samplers._random import RandomSampler
 from optuna.samplers.nsgaii._after_trial_strategy import NSGAIIAfterTrialStrategy
 from optuna.samplers.nsgaii._child_generation_strategy import NSGAIIChildGenerationStrategy
 from optuna.samplers.nsgaii._crossovers._base import BaseCrossover
 from optuna.samplers.nsgaii._crossovers._uniform import UniformCrossover
-from optuna.samplers._nsgaiii.elite_population_selection_strategy import (
-    NSGAIIIElitePopulationSelectionStrategy,
-)
 from optuna.search_space import IntersectionSearchSpace
 from optuna.study import Study
 from optuna.trial import FrozenTrial
@@ -83,7 +82,7 @@ class NSGAIIISampler(BaseSampler):
         reference_points: np.ndarray | None = None,
         dividing_parameter: int = 3,
         elite_population_selection_strategy: Callable[
-             [Study, list[FrozenTrial]], list[FrozenTrial]
+            [Study, list[FrozenTrial]], list[FrozenTrial]
         ]
         | None = None,
         child_generation_strategy: Callable[
@@ -126,7 +125,10 @@ class NSGAIIISampler(BaseSampler):
         self._elite_population_selection_strategy = (
             elite_population_selection_strategy
             or NSGAIIIElitePopulationSelectionStrategy(
-                population_size=population_size, constraints_func=constraints_func, reference_points=reference_points, dividing_parameter=dividing_parameter
+                population_size=population_size,
+                constraints_func=constraints_func,
+                reference_points=reference_points,
+                dividing_parameter=dividing_parameter,
             )
         )
         self._child_generation_strategy = (
@@ -204,8 +206,8 @@ class NSGAIIISampler(BaseSampler):
                 continue
 
             generation = trial.system_attrs[_GENERATION_KEY]
-            if trial.state != optuna.trial.TrialState.COMPLETE:
-                if trial.state == optuna.trial.TrialState.RUNNING:
+            if trial.state != TrialState.COMPLETE:
+                if trial.state == TrialState.RUNNING:
                     generation_to_runnings[generation].append(trial)
                 continue
 
@@ -268,7 +270,6 @@ class NSGAIIISampler(BaseSampler):
             parent_population = population
 
         return parent_generation, parent_population
-
 
     def before_trial(self, study: Study, trial: FrozenTrial) -> None:
         self._random_sampler.before_trial(study, trial)

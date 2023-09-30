@@ -1,4 +1,4 @@
-# from optuna.samplers import nsgaii
+from optuna.samplers import nsgaii
 from optuna.samplers._base import BaseSampler
 from optuna.samplers._brute_force import BruteForceSampler
 from optuna.samplers._cmaes import CmaEsSampler

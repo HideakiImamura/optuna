@@ -825,11 +825,11 @@ class RDBStorage(BaseStorage, BaseHeartbeat):
             try:
                 trial_models = (
                     session.query(models.TrialModel)
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.params))
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.values))
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.user_attributes))
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.system_attributes))
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.intermediate_values))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.params))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.values))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.user_attributes))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.system_attributes))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.intermediate_values))
                     .filter(
                         models.TrialModel.trial_id.in_(trial_ids),
                         models.TrialModel.study_id == study_id,
@@ -850,11 +850,11 @@ class RDBStorage(BaseStorage, BaseHeartbeat):
 
                 trial_models = (
                     session.query(models.TrialModel)
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.params))
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.values))
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.user_attributes))
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.system_attributes))
-                    .options(sqlalchemy_orm.selectinload(models.TrialModel.intermediate_values))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.params))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.values))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.user_attributes))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.system_attributes))
+                    .options(sqlalchemy_orm.joinedload(models.TrialModel.intermediate_values))
                     .filter(models.TrialModel.study_id == study_id)
                     .order_by(models.TrialModel.trial_id)
                     .all()
@@ -1011,7 +1011,7 @@ class RDBStorage(BaseStorage, BaseHeartbeat):
 
             running_trials = (
                 session.query(models.TrialModel)
-                .options(sqlalchemy_orm.selectinload(models.TrialModel.heartbeats))
+                .options(sqlalchemy_orm.joinedload(models.TrialModel.heartbeats))
                 .filter(models.TrialModel.state == TrialState.RUNNING)
                 .filter(models.TrialModel.study_id == study_id)
                 .all()

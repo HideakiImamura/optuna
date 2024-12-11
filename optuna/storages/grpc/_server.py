@@ -31,7 +31,7 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
 
 class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
-    def __init__(self, storage: RDBStorage) -> None:
+    def __init__(self, storage: BaseStorage) -> None:
         self._backend = storage
         self._lock = threading.Lock()
 
@@ -199,10 +199,9 @@ class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
             template_trial = _from_proto_frozen_trial(request.template_trial)
 
         try:
-            frozen_trial = self._backend._create_new_trial(study_id, template_trial)
+            trial_id = self._backend.create_new_trial(study_id, template_trial)
         except KeyError as e:
             context.abort(code=grpc.StatusCode.NOT_FOUND, details=str(e))
-        trial_id = frozen_trial._trial_id
 
         return api_pb2.CreateNewTrialReply(trial_id=trial_id)
 
@@ -326,19 +325,16 @@ class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
         context: grpc.ServicerContext,
     ) -> api_pb2.GetAllTrialsReply:
         study_id = request.study_id
-        deepcopy = request.deepcopy
         states = [_from_proto_trial_state(state) for state in request.states]
         try:
-            trials = self._backend._get_trials(
+            trials = self._backend.get_all_trials(
                 study_id,
+                deepcopy=False,
                 states=states,
-                included_trial_ids=set(),
-                trial_id_greater_than=-1,
             )
         except KeyError as e:
             context.abort(code=grpc.StatusCode.NOT_FOUND, details=str(e))
 
-        trials = copy.deepcopy(trials) if deepcopy else trials
         return api_pb2.GetAllTrialsReply(
             frozen_trials=[_to_proto_frozen_trial(trial) for trial in trials]
         )
@@ -446,7 +442,7 @@ def _from_proto_frozen_trial(frozen_trial: api_pb2.FrozenTrial) -> FrozenTrial:
 
 
 def make_server(
-    storage: RDBStorage, host: str, port: int, thread_pool: ThreadPoolExecutor | None = None
+    storage: BaseStorage, host: str, port: int, thread_pool: ThreadPoolExecutor | None = None
 ) -> grpc.Server:
     server = grpc.server(thread_pool or ThreadPoolExecutor(max_workers=10))
     api_pb2_grpc.add_StorageServiceServicer_to_server(
@@ -457,7 +453,7 @@ def make_server(
 
 
 def run_grpc_server(
-    storage: RDBStorage, host: str, port: int, thread_pool: ThreadPoolExecutor | None = None
+    storage: BaseStorage, host: str, port: int, thread_pool: ThreadPoolExecutor | None = None
 ) -> None:
     """Run a gRPC server for the given storage URL, host, and port.
 

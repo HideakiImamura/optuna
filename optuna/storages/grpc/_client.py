@@ -280,7 +280,6 @@ class GrpcStorageProxy(BaseStorage):
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise KeyError from e
             raise
-        # return response.trial_id
 
         frozen_trial = _from_proto_frozen_trial(response.frozen_trial)
         trial_id = frozen_trial._trial_id

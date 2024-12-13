@@ -198,11 +198,9 @@ class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
             template_trial = _from_proto_frozen_trial(request.template_trial)
 
         try:
-            trial_id = self._backend.create_new_trial(study_id, template_trial)
+            frozen_trial = self._backend._create_new_trial(study_id, template_trial)
         except KeyError as e:
             context.abort(code=grpc.StatusCode.NOT_FOUND, details=str(e))
-
-        frozen_trial = self._backend.get_trial(trial_id)
 
         return api_pb2.CreateNewTrialReply(frozen_trial=_to_proto_frozen_trial(frozen_trial))
 

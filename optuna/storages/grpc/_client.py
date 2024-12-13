@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from collections.abc import Container
 from collections.abc import Iterable
 from collections.abc import Sequence
@@ -404,9 +405,4 @@ class StudyCache:
     def add_trials_to_cache(self, study_id: int, trials: list[FrozenTrial]) -> None:
         study = self._studies[study_id]
         for trial in trials:
-            self._trial_id_to_study_id_and_number[trial._trial_id] = (
-                study_id,
-                trial.number,
-            )
-            self._study_id_and_number_to_trial_id[(study_id, trial.number)] = trial._trial_id
             study.trials[trial.number] = trial

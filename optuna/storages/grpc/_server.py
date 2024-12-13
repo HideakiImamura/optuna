@@ -33,7 +33,6 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
     def __init__(self, storage: BaseStorage) -> None:
         self._backend = storage
-        self._lock = threading.Lock()
 
     def CreateNewStudy(
         self,
@@ -353,7 +352,7 @@ class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
             context.abort(code=grpc.StatusCode.NOT_FOUND, details=str(e))
         
         filtered_frozen_trials = [
-            _to_proto_frozen_trial(trial) for trial in trials
+            _to_proto_frozen_trial(t) for t in trials
             if t._trial_id > trial_id_greater_than or t._trial_id in included_trial_ids
         ]
         return api_pb2.GetTrialsReply(frozen_trials=filtered_frozen_trials)

@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from collections.abc import Sequence
 import json
 from typing import Any
+import threading
 import uuid
 
 from optuna.distributions import BaseDistribution
@@ -55,14 +56,22 @@ class GrpcStorageProxy(BaseStorage):
 
     def __init__(self, *, host: str = "localhost", port: int = 13000) -> None:
         self._stub = api_pb2_grpc.StorageServiceStub(
-            grpc.insecure_channel(f"{host}:{port}")
+            grpc.insecure_channel(
+                f"{host}:{port}",
+                options=[
+                    ('grpc.max_send_message_length', -1),
+                    ('grpc.max_receive_message_length', -1),
+                ]
+            )
         )  # type: ignore
+        self._cache = StudyCache(self._stub)
         self._host = host
         self._port = port
 
     def __getstate__(self) -> dict[Any, Any]:
         state = self.__dict__.copy()
         del state["_stub"]
+        del state["_cache"]
         return state
 
     def __setstate__(self, state: dict[Any, Any]) -> None:
@@ -70,6 +79,7 @@ class GrpcStorageProxy(BaseStorage):
         self._stub = api_pb2_grpc.StorageServiceStub(
             grpc.insecure_channel(f"{self._host}:{self._port}")
         )  # type: ignore
+        self._cache = StudyCache(self._stub)
 
     def create_new_study(
         self, directions: Sequence[StudyDirection], study_name: str | None = None
@@ -331,24 +341,72 @@ class GrpcStorageProxy(BaseStorage):
         deepcopy: bool = True,
         states: Container[TrialState] | None = None,
     ) -> list[FrozenTrial]:
-        if states is None:
-            states = [
-                TrialState.RUNNING,
-                TrialState.COMPLETE,
-                TrialState.PRUNED,
-                TrialState.FAIL,
-                TrialState.WAITING,
-            ]
-        assert isinstance(states, Iterable)
-        request = api_pb2.GetAllTrialsRequest(
-            study_id=study_id,
-            deepcopy=deepcopy,
-            states=[_to_proto_trial_state(state) for state in states],
-        )
-        try:
-            response = self._stub.GetAllTrials(request)
-        except grpc.RpcError as e:
-            if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise KeyError from e
-            raise
-        return [_from_proto_frozen_trial(trial) for trial in response.frozen_trials]
+        trials = self._cache.get_all_trials(study_id, states)
+        return copy.deepcopy(trials) if deepcopy else trials
+
+
+class StudyCacheEntry:
+    def __init__(self) -> None:
+        self.trials: dict[int, FrozenTrial] = {}
+        self.unfinished_trial_ids: set[int] = set()
+        self.last_finished_trial_id: int = -1
+
+
+class StudyCache:
+    def __init__(self, grpc_client: api_pb2_grpc.StorageServiceStub):
+        self._studies: dict[int, StudyCacheEntry] = {}
+        self._grpc_client = grpc_client
+        self._lock = threading.Lock()
+    
+    def get_all_trials(self, study_id: int, states: Container[TrialState] | None = None) -> list[FrozenTrial]:
+        self.read_trials_from_remote_storage(study_id)
+
+        with self._lock:
+            study = self._studies[study_id]
+            trials: dict[int, FrozenTrial] | list[FrozenTrial]
+            if states is not None:
+                trials = {number: t for number, t in study.trials.items() if t.state in states}
+            else:
+                trials = study.trials
+            trials = list(sorted(trials.values(), key=lambda t: t.number))
+            return trials
+
+    def read_trials_from_remote_storage(self, study_id: int) -> None:
+        with self._lock:
+            if study_id not in self._studies:
+                self._studies[study_id] = StudyCacheEntry()
+            study = self._studies[study_id]
+            req = api_pb2.GetTrialsRequest(
+                study_id=study_id,
+                included_trial_ids=study.unfinished_trial_ids,
+                trial_id_greater_than=study.last_finished_trial_id,
+            )
+            try:
+                res = self._grpc_client.GetTrials(req)
+            except grpc.RpcError as e:
+                if e.code() == grpc.StatusCode.NOT_FOUND:
+                    raise KeyError from e
+                raise
+            trials = [_from_proto_frozen_trial(t) for t in res.frozen_trials]
+            if not trials:
+                return
+
+            self.add_trials_to_cache(study_id, trials)
+            for trial in trials:
+                if not trial.state.is_finished():
+                    study.unfinished_trial_ids.add(trial._trial_id)
+                    continue
+
+                study.last_finished_trial_id = max(study.last_finished_trial_id, trial._trial_id)
+                if trial._trial_id in study.unfinished_trial_ids:
+                    study.unfinished_trial_ids.remove(trial._trial_id)
+
+    def add_trials_to_cache(self, study_id: int, trials: list[FrozenTrial]) -> None:
+        study = self._studies[study_id]
+        for trial in trials:
+            self._trial_id_to_study_id_and_number[trial._trial_id] = (
+                study_id,
+                trial.number,
+            )
+            self._study_id_and_number_to_trial_id[(study_id, trial.number)] = trial._trial_id
+            study.trials[trial.number] = trial

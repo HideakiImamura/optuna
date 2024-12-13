@@ -8,7 +8,7 @@ import threading
 from optuna.distributions import distribution_to_json
 from optuna.distributions import json_to_distribution
 from optuna.exceptions import DuplicatedStudyError
-from optuna.storages import BaseStorage
+from optuna.storages import RDBStorage
 from optuna.storages.grpc._grpc_imports import _imports
 from optuna.study._study_direction import StudyDirection
 from optuna.trial._frozen import FrozenTrial
@@ -30,7 +30,7 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
 
 class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
-    def __init__(self, storage: BaseStorage) -> None:
+    def __init__(self, storage: RDBStorage) -> None:
         self._backend = storage
         self._lock = threading.Lock()
 
@@ -202,7 +202,9 @@ class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
         except KeyError as e:
             context.abort(code=grpc.StatusCode.NOT_FOUND, details=str(e))
 
-        return api_pb2.CreateNewTrialReply(trial_id=trial_id)
+        frozen_trial = self._backend.get_trial(trial_id)
+
+        return api_pb2.CreateNewTrialReply(frozen_trial=_to_proto_frozen_trial(frozen_trial))
 
     def SetTrialParameter(
         self,
@@ -318,23 +320,25 @@ class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
 
         return api_pb2.GetTrialReply(frozen_trial=_to_proto_frozen_trial(trial))
 
-    def GetAllTrials(
+    def GetTrials(
         self,
-        request: api_pb2.GetAllTrialsRequest,
+        request: api_pb2.GetTrialsRequest,
         context: grpc.ServicerContext,
-    ) -> api_pb2.GetAllTrialsReply:
+    ) -> api_pb2.GetTrialsReply:
         study_id = request.study_id
-        states = [_from_proto_trial_state(state) for state in request.states]
+        included_trial_ids = set(request.included_trial_ids)
+        trial_id_greater_than = request.trial_id_greater_than
         try:
-            trials = self._backend.get_all_trials(
+            trials = self._backend._get_trials(
                 study_id,
-                deepcopy=False,
-                states=states,
+                states=None,
+                included_trial_ids=included_trial_ids,
+                trial_id_greater_than=trial_id_greater_than,
             )
         except KeyError as e:
             context.abort(code=grpc.StatusCode.NOT_FOUND, details=str(e))
 
-        return api_pb2.GetAllTrialsReply(
+        return api_pb2.GetTrialsReply(
             frozen_trials=[_to_proto_frozen_trial(trial) for trial in trials]
         )
 
@@ -441,7 +445,7 @@ def _from_proto_frozen_trial(frozen_trial: api_pb2.FrozenTrial) -> FrozenTrial:
 
 
 def make_server(
-    storage: BaseStorage, host: str, port: int, thread_pool: ThreadPoolExecutor | None = None
+    storage: RDBStorage, host: str, port: int, thread_pool: ThreadPoolExecutor | None = None
 ) -> grpc.Server:
     server = grpc.server(thread_pool or ThreadPoolExecutor(max_workers=10))
     api_pb2_grpc.add_StorageServiceServicer_to_server(
@@ -452,7 +456,7 @@ def make_server(
 
 
 def run_grpc_server(
-    storage: BaseStorage, host: str, port: int, thread_pool: ThreadPoolExecutor | None = None
+    storage: RDBStorage, host: str, port: int, thread_pool: ThreadPoolExecutor | None = None
 ) -> None:
     """Run a gRPC server for the given storage URL, host, and port.
 

@@ -522,14 +522,16 @@ class CreateNewTrialReply(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    TRIAL_ID_FIELD_NUMBER: builtins.int
-    trial_id: builtins.int
+    FROZEN_TRIAL_FIELD_NUMBER: builtins.int
+    @property
+    def frozen_trial(self) -> global___FrozenTrial: ...
     def __init__(
         self,
         *,
-        trial_id: builtins.int = ...,
+        frozen_trial: global___FrozenTrial | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["trial_id", b"trial_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["frozen_trial", b"frozen_trial"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["frozen_trial", b"frozen_trial"]) -> None: ...
 
 global___CreateNewTrialReply = CreateNewTrialReply
 
@@ -819,7 +821,7 @@ class GetTrialReply(google.protobuf.message.Message):
 global___GetTrialReply = GetTrialReply
 
 @typing.final
-class GetAllTrialsRequest(google.protobuf.message.Message):
+class GetTrialsRequest(google.protobuf.message.Message):
     """*
     Request to get all trials in a study.
     """
@@ -827,22 +829,25 @@ class GetAllTrialsRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     STUDY_ID_FIELD_NUMBER: builtins.int
-    STATES_FIELD_NUMBER: builtins.int
+    INCLUDED_TRIAL_IDS_FIELD_NUMBER: builtins.int
+    TRIAL_ID_GREATER_THAN_FIELD_NUMBER: builtins.int
     study_id: builtins.int
+    trial_id_greater_than: builtins.int
     @property
-    def states(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[global___TrialState.ValueType]: ...
+    def included_trial_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
     def __init__(
         self,
         *,
         study_id: builtins.int = ...,
-        states: collections.abc.Iterable[global___TrialState.ValueType] | None = ...,
+        included_trial_ids: collections.abc.Iterable[builtins.int] | None = ...,
+        trial_id_greater_than: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["states", b"states", "study_id", b"study_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["included_trial_ids", b"included_trial_ids", "study_id", b"study_id", "trial_id_greater_than", b"trial_id_greater_than"]) -> None: ...
 
-global___GetAllTrialsRequest = GetAllTrialsRequest
+global___GetTrialsRequest = GetTrialsRequest
 
 @typing.final
-class GetAllTrialsReply(google.protobuf.message.Message):
+class GetTrialsReply(google.protobuf.message.Message):
     """*
     Reply to get all trials in a study.
     """
@@ -859,7 +864,7 @@ class GetAllTrialsReply(google.protobuf.message.Message):
     ) -> None: ...
     def ClearField(self, field_name: typing.Literal["frozen_trials", b"frozen_trials"]) -> None: ...
 
-global___GetAllTrialsReply = GetAllTrialsReply
+global___GetTrialsReply = GetTrialsReply
 
 @typing.final
 class FrozenStudy(google.protobuf.message.Message):

@@ -31,6 +31,8 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
     def __init__(self, storage: BaseStorage) -> None:
         self._backend = storage
+        self._set_trial_param_request_queue: list[str] = []
+        self._set_trial_user_attr_queue: list[str] = []
 
     def CreateNewStudy(
         self,
@@ -207,6 +209,27 @@ class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
         request: api_pb2.SetTrialParameterRequest,
         context: grpc.ServicerContext,
     ) -> api_pb2.SetTrialParameterReply:
+        #     self._set_trial_param_request_queue.append(request)
+
+        #     if len(self._set_trial_param_request_queue) < 10:
+        #         return api_pb2.SetTrialParameterReply()
+
+        #     asyncio.run(self._SetTrialParameterBatch(context))
+
+        #     return api_pb2.SetTrialParameterReply()
+
+        # async def _SetTrialParameterBatch(self, context: grpc.ServicerContext) -> None:
+        #     await asyncio.gather(
+        #         *[self._SetTrialParameter(request, context)
+        #           for request in self._set_trial_param_request_queue]
+        #     )
+        #     self._set_trial_param_request_queue = []
+
+        # async def _SetTrialParameter(
+        #     self,
+        #     request: api_pb2.SetTrialParameterRequest,
+        #     context: grpc.ServicerContext,
+        # ) -> None:
         trial_id = request.trial_id
         param_name = request.param_name
         param_value_internal = request.param_value_internal
@@ -219,6 +242,7 @@ class OptunaStorageProxyService(api_pb2_grpc.StorageServiceServicer):
             context.abort(code=grpc.StatusCode.FAILED_PRECONDITION, details=str(e))
         except ValueError as e:
             context.abort(code=grpc.StatusCode.INVALID_ARGUMENT, details=str(e))
+
         return api_pb2.SetTrialParameterReply()
 
     def GetTrialIdFromStudyIdTrialNumber(

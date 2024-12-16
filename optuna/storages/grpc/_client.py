@@ -61,6 +61,7 @@ class GrpcStorageProxy(BaseStorage):
                 options=[
                     ("grpc.max_send_message_length", -1),
                     ("grpc.max_receive_message_length", -1),
+                    ("grpc.experimental.ChannelOptions.SingleThreadedUnaryStream", 1),
                 ],
             )
         )  # type: ignore

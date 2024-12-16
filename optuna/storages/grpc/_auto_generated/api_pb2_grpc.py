@@ -131,6 +131,11 @@ class StorageServiceStub(object):
                 request_serializer=api__pb2.GetAllTrialsRequest.SerializeToString,
                 response_deserializer=api__pb2.GetAllTrialsReply.FromString,
                 _registered_method=True)
+        self.GetTrials = channel.unary_unary(
+                '/optuna.StorageService/GetTrials',
+                request_serializer=api__pb2.GetTrialsRequest.SerializeToString,
+                response_deserializer=api__pb2.GetTrialsReply.FromString,
+                _registered_method=True)
 
 
 class StorageServiceServicer(object):
@@ -290,6 +295,14 @@ class StorageServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetTrials(self, request, context):
+        """*
+        Get trials in a study.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_StorageServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -387,6 +400,11 @@ def add_StorageServiceServicer_to_server(servicer, server):
                     servicer.GetAllTrials,
                     request_deserializer=api__pb2.GetAllTrialsRequest.FromString,
                     response_serializer=api__pb2.GetAllTrialsReply.SerializeToString,
+            ),
+            'GetTrials': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTrials,
+                    request_deserializer=api__pb2.GetTrialsRequest.FromString,
+                    response_serializer=api__pb2.GetTrialsReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -904,6 +922,33 @@ class StorageService(object):
             '/optuna.StorageService/GetAllTrials',
             api__pb2.GetAllTrialsRequest.SerializeToString,
             api__pb2.GetAllTrialsReply.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetTrials(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/optuna.StorageService/GetTrials',
+            api__pb2.GetTrialsRequest.SerializeToString,
+            api__pb2.GetTrialsReply.FromString,
             options,
             channel_credentials,
             insecure,

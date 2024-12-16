@@ -110,6 +110,11 @@ service StorageService {
      * Get all trials in a study.
      */
     rpc GetAllTrials(GetAllTrialsRequest) returns (GetAllTrialsReply);
+
+    /**
+     * Get trials in a study.
+     */
+    rpc GetTrials(GetTrialsRequest) returns (GetTrialsReply);
 }
 
 /**
@@ -385,6 +390,22 @@ message GetAllTrialsRequest {
  * Reply to get all trials in a study.
  */
 message GetAllTrialsReply {
+    repeated FrozenTrial frozen_trials = 1;
+}
+
+/**
+ * Request to get trials in a study.
+ */
+message GetTrialsRequest {
+    int64 study_id = 1;
+    repeated int64 included_trial_ids = 2;
+    int64 trial_id_greater_than = 3;
+}
+
+/**
+ * Reply to get trials in a study.
+ */
+message GetTrialsReply {
     repeated FrozenTrial frozen_trials = 1;
 }
 

@@ -862,6 +862,52 @@ class GetAllTrialsReply(google.protobuf.message.Message):
 global___GetAllTrialsReply = GetAllTrialsReply
 
 @typing.final
+class GetTrialsRequest(google.protobuf.message.Message):
+    """*
+    Request to get trials in a study.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STUDY_ID_FIELD_NUMBER: builtins.int
+    INCLUDED_TRIAL_IDS_FIELD_NUMBER: builtins.int
+    TRIAL_ID_GREATER_THAN_FIELD_NUMBER: builtins.int
+    study_id: builtins.int
+    trial_id_greater_than: builtins.int
+    @property
+    def included_trial_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
+    def __init__(
+        self,
+        *,
+        study_id: builtins.int = ...,
+        included_trial_ids: collections.abc.Iterable[builtins.int] | None = ...,
+        trial_id_greater_than: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["included_trial_ids", b"included_trial_ids", "study_id", b"study_id", "trial_id_greater_than", b"trial_id_greater_than"]) -> None: ...
+
+global___GetTrialsRequest = GetTrialsRequest
+
+@typing.final
+class GetTrialsReply(google.protobuf.message.Message):
+    """*
+    Reply to get trials in a study.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    FROZEN_TRIALS_FIELD_NUMBER: builtins.int
+    @property
+    def frozen_trials(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FrozenTrial]: ...
+    def __init__(
+        self,
+        *,
+        frozen_trials: collections.abc.Iterable[global___FrozenTrial] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["frozen_trials", b"frozen_trials"]) -> None: ...
+
+global___GetTrialsReply = GetTrialsReply
+
+@typing.final
 class FrozenStudy(google.protobuf.message.Message):
     """*
     Frozen study.

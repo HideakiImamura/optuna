@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import json
+import time
 
 from optuna.distributions import distribution_to_json
 from optuna.distributions import json_to_distribution
@@ -33,6 +34,8 @@ class OptunaStorageProxyService(StorageServiceServicer):
         self._backend = storage
         self._set_trial_param_request_queue: list[str] = []
         self._set_trial_user_attr_queue: list[str] = []
+        self._cached_time: float | None = None
+        self._cached_trials: list[api_pb2.Trial] = []
 
     def CreateNewStudy(
         self,
@@ -366,6 +369,10 @@ class OptunaStorageProxyService(StorageServiceServicer):
         study_id = request.study_id
         included_trial_ids = set(request.included_trial_ids)
         trial_id_greater_than = request.trial_id_greater_than
+
+        if self._cached_time is not None and time.time() - self._cached_time < 10:
+            return api_pb2.GetTrialsReply(trials=self._cached_trials)
+
         try:
             trials = self._backend.get_all_trials(study_id, deepcopy=False)
         except KeyError as e:
@@ -376,6 +383,8 @@ class OptunaStorageProxyService(StorageServiceServicer):
             for t in trials
             if t._trial_id > trial_id_greater_than or t._trial_id in included_trial_ids
         ]
+        self._cached_time = time.time()
+        self._cached_trials = filtered_trials
         return api_pb2.GetTrialsReply(trials=filtered_trials)
 
 
